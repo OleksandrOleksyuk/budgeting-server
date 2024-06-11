@@ -1,0 +1,30 @@
+version: '3.7'
+
+services:
+  server:
+    container_name: server
+    build:
+      context: .
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: ${DATABASE_URL}
+    ports:
+      - '9000:9000'
+    depends_on:
+      - db
+    env_file:
+      - .env
+
+  db:
+    container_name: db
+    image: postgres:14
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata: {}
