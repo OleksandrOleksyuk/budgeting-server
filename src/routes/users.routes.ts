@@ -1,17 +1,16 @@
+import * as z from 'zod';
+
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 const router = Router();
 
 const prisma = new PrismaClient();
 
-router.get('/users', async (req, res) => {
-  try {
-    const users = await prisma.user.findMany();
-    res.status(200).json(users);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
+const userSchema = z.object({
+  username: z.string().min(1, 'Username is required'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters long'),
 });
 
 router.get('/users/:id', async (req, res) => {
@@ -29,16 +28,26 @@ router.get('/users/:id', async (req, res) => {
 
 router.post('/users', async (req, res) => {
   try {
+    const parsedData = userSchema.safeParse(req.body);
+    if (!parsedData.success) {
+      return res.status(400).json({ message: 'Validation failed', errors: parsedData.error.errors });
+    }
+
     const user = await prisma.user.create({
       data: {
-        username: req.body.username,
-        email: req.body.email,
-        password: req.body.password,
+        username: parsedData.data.username,
+        email: parsedData.data.email,
+        password: parsedData.data.password,
       },
     });
+
     res.status(201).json(user);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      res.status(400).json({ message: 'A user with this email already exists' });
+    } else {
+      res.status(500).json({ message: 'Internal server error' });
+    }
   }
 });
 
